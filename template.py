@@ -20,17 +20,41 @@ from pathlib import Path
 STRUCTURE: dict[str, str] = {
     # --- application package -------------------------------------------------
     "jobhunter/__init__.py": "",
-    "jobhunter/graph.py": "§9 — LangGraph state machine: scout → dedupe → normalise → match → gate → tailor",
     "jobhunter/schemas.py": "§8 — JobPosting, MatchReport, TailoredApplication",
-    "jobhunter/cli.py": "§9 human gate resume, §4.4 `jobhunter costs`",
+    "jobhunter/cli.py": "§9.2 signal the approval, §4.4 `jobhunter costs`",
+    "jobhunter/worker.py": "§9.4 — one process per task queue: --queue jh-untrusted | jh-pii",
+
+    # --- control plane: Temporal CLIENT only. No tokens, no models (§9.8) ----
+    "jobhunter/control/__init__.py": "",
+    "jobhunter/control/client.py": "§9.8 — start/signal/update/query. Shared by the API and the CLI",
+
+    "jobhunter/api/__init__.py": "",
+    "jobhunter/api/main.py": "§9.8 — FastAPI app. Temporal client built once in lifespan",
+    "jobhunter/api/auth.py": "§9.8 — bearer token, strict CORS, no cookies. A localhost API is not private",
+    "jobhunter/api/schemas.py": "§9.8 — wire contract. Deliberately NOT jobhunter/schemas.py",
+    "jobhunter/api/routes/__init__.py": "",
+    "jobhunter/api/routes/hunts.py": "§9.8 — POST /hunts, GET status via Query, approve via Update",
+    "jobhunter/api/routes/applications.py": "§9.8 — sent signal, draft download. Draft endpoint serves PII",
+    "jobhunter/api/routes/costs.py": "§4.4 — ledger report",
+
+    # --- Temporal workflows: deterministic, stdlib imports ONLY (§9.7) -------
+    "jobhunter/workflows/__init__.py": "",
+    "jobhunter/workflows/hunt.py": "§9.2 — HuntWorkflow: scout → dedupe → normalize → match → approval signal → tailor",
+    "jobhunter/workflows/application.py": "§9.2 — ApplicationWorkflow: weeks-long, durable timers, follow-ups",
+    "jobhunter/workflows/types.py": "§9.3 — dataclasses crossing the boundary. IDs and verdicts, never text",
+
+    # --- Temporal activities: where all non-determinism lives (§9.1) ---------
+    "jobhunter/activities/__init__.py": "",
+    "jobhunter/activities/scout.py": "§8 — tier: small, mcp-ats. Queue: jh-untrusted",
+    "jobhunter/activities/normalize.py": "§7.2 — zero tools, schema-only. The trust boundary. Queue: jh-untrusted",
+    "jobhunter/activities/dedupe.py": "§9.2 — hash comparison, no model call. The biggest cost lever",
+    "jobhunter/activities/match.py": "§8 — tier: medium, mcp-profile + mcp-store. Queue: jh-pii",
+    "jobhunter/activities/tailor.py": "§8 — tier: large, mcp-profile + mcp-fs. Queue: jh-pii",
+    "jobhunter/activities/prep.py": "§8 — tier: large, mcp-ats. Queue: jh-untrusted",
+    "jobhunter/activities/idempotency.py": "§9.6 — workflow_id:activity_id keys so retries don't double-count",
 
     "jobhunter/agents/__init__.py": "",
-    "jobhunter/agents/_common.py": "Shared middleware assembly and per-agent gateway token lookup",
-    "jobhunter/agents/scout.py": "§8 — tier: small, mcp-ats",
-    "jobhunter/agents/normalizer.py": "§7.2 — zero tools, schema-only. The trust boundary",
-    "jobhunter/agents/matcher.py": "§8 — tier: medium, mcp-profile + mcp-store",
-    "jobhunter/agents/tailor.py": "§8 — tier: large, mcp-profile + mcp-fs",
-    "jobhunter/agents/prep.py": "§8 — tier: large, mcp-ats",
+    "jobhunter/agents/build.py": "§8 — create_agent per role. Checkpointer disabled; event history is the checkpoint",
 
     "jobhunter/router/__init__.py": "",
     "jobhunter/router/policy.py": "§4.1 Layer 1 — routing.yaml lookup, sensitivity and pii_egress rules",
@@ -61,6 +85,7 @@ STRUCTURE: dict[str, str] = {
     "config/egress-gateway.yaml": "§6.2 — key, model allowlist, spend cap, PII block rule",
     "config/mcp-gateway.yaml": "§6.3 — per-agent tool allowlists, description pinning",
     "config/validate.py": "§7.3 — cross-check the two gateway configs. Fails CI on a broken invariant",
+    "config/temporal.yaml": "§9.4 — task queues, retry policies, timeouts, the daily Schedule",
 
     # --- deterministic tests -------------------------------------------------
     "tests/__init__.py": "",
@@ -68,6 +93,9 @@ STRUCTURE: dict[str, str] = {
     "tests/test_ledger.py": "§4.4 — budget maths and the degrade threshold",
     "tests/test_dedupe.py": "§9 — hash comparison, the biggest cost lever",
     "tests/test_config_invariants.py": "§7.3 — runs config/validate.py",
+    "tests/test_replay.py": "§13.1 — replay saved histories. The only defence against determinism drift",
+    "tests/test_api_auth.py": "§9.8 — every endpoint 401s without a token; CORS rejects unknown origins",
+    "tests/histories/.gitkeep": "",
 
     # --- output-quality evals ------------------------------------------------
     "evals/__init__.py": "",
